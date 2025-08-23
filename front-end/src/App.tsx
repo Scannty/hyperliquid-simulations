@@ -45,6 +45,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [currentTransactionHash, setCurrentTransactionHash] = useState<string | null>(null);
 
+  // TODO: Will be used by TraceInput component in Step 3
   const handleTrace = async (data: TraceData) => {
     setIsLoading(true);
     setError(null);
@@ -135,9 +136,11 @@ function App() {
         debugTrace,
         sourceCodes
       });
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.error || err.message || "An error occurred";
+    } catch (err: unknown) {
+      const errorMessage = 
+        (err as any)?.response?.data?.error || 
+        (err as Error)?.message || 
+        "An error occurred";
       setError(errorMessage);
       console.error("Debug error:", err);
     } finally {
@@ -158,12 +161,19 @@ function App() {
           <p>TraceInput Component (Step 3)</p>
           <p>Current state: isLoading = {isLoading.toString()}</p>
           {error && <p style={{color: 'red'}}>Error: {error}</p>}
+          <p>Transaction Hash: {currentTransactionHash || 'None'}</p>
         </div>
 
         {/* Placeholder for TraceOutput component - Step 5 */}
         <div className="card">
           <p>TraceOutput Component (Step 5)</p>
           <p>Debug result available: {!!debugResult}</p>
+          <button onClick={() => handleTrace({
+            from: '0x123',
+            to: '0x456', 
+            calldata: '0x',
+            blockchain: 'ethereum'
+          })}>Test handleTrace</button>
         </div>
       </main>
 
