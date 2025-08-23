@@ -1,5 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
+import TraceInput from "./components/TraceInput";
+import type { TraceData } from "./components/TraceInput";
 import "./index.css";
 import "./App.css";
 
@@ -30,14 +32,7 @@ interface DebugResult {
   sourceCodes?: { [address: string]: { [filename: string]: string } };
 }
 
-interface TraceData {
-  from: string;
-  to: string;
-  calldata: string;
-  blockchain: string;
-  blockNumber?: string;
-  transactionHash?: string;
-}
+// TraceData interface is now imported from TraceInput component
 
 function App() {
   const [debugResult, setDebugResult] = useState<DebugResult | null>(null);
@@ -156,24 +151,14 @@ function App() {
       </header>
 
       <main>
-        {/* Placeholder for TraceInput component - Step 3 */}
-        <div className="card">
-          <p>TraceInput Component (Step 3)</p>
-          <p>Current state: isLoading = {isLoading.toString()}</p>
-          {error && <p style={{color: 'red'}}>Error: {error}</p>}
-          <p>Transaction Hash: {currentTransactionHash || 'None'}</p>
-        </div>
+        <TraceInput onTrace={handleTrace} isLoading={isLoading} />
 
         {/* Placeholder for TraceOutput component - Step 5 */}
         <div className="card">
           <p>TraceOutput Component (Step 5)</p>
           <p>Debug result available: {!!debugResult}</p>
-          <button onClick={() => handleTrace({
-            from: '0x123',
-            to: '0x456', 
-            calldata: '0x',
-            blockchain: 'ethereum'
-          })}>Test handleTrace</button>
+          {error && <p style={{color: 'red'}}>Error: {error}</p>}
+          <p>Transaction Hash: {currentTransactionHash || 'None'}</p>
         </div>
       </main>
 
