@@ -1,0 +1,57 @@
+#root {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  min-height: 100vh;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.card {
+  padding: 2em;
+}
+
+.app-footer {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.footer-content {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+}
+
+.perpflow-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #646cff;
+  text-decoration: none;
+}
+
+.perpflow-link:hover {
+  color: #535bf2;
+}
+
+.perpflow-logo {
+  width: 16px;
+  height: 16px;
+} 
