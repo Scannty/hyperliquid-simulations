@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import TraceInput from "./components/TraceInput";
+import TraceOutput from "./components/TraceOutput";
 import type { TraceData } from "./components/TraceInput";
 import "./index.css";
 import "./App.css";
@@ -152,14 +153,12 @@ function App() {
 
       <main>
         <TraceInput onTrace={handleTrace} isLoading={isLoading} />
-
-        {/* Placeholder for TraceOutput component - Step 5 */}
-        <div className="card">
-          <p>TraceOutput Component (Step 5)</p>
-          <p>Debug result available: {!!debugResult}</p>
-          {error && <p style={{color: 'red'}}>Error: {error}</p>}
-          <p>Transaction Hash: {currentTransactionHash || 'None'}</p>
-        </div>
+        <TraceOutput 
+          debugResult={debugResult}
+          isLoading={isLoading}
+          error={error || undefined}
+          transactionHash={currentTransactionHash || undefined}
+        />
       </main>
 
       <footer className="app-footer">

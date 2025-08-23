@@ -56,6 +56,123 @@
   height: 16px;
 }
 
+/* Terminal Container Styles */
+.terminal-container {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  margin: 2rem auto;
+  max-width: 1200px;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loading State */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.loading::before {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #646cff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Error State */
+.error-container {
+  width: 100%;
+  text-align: left;
+}
+
+.error-output {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+  padding: 1.5rem;
+  color: #fca5a5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* Placeholder State */
+.placeholder {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.placeholder h3 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.placeholder p {
+  font-size: 1rem;
+  line-height: 1.6;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+/* Stepper Debugger Placeholder */
+.stepper-debugger-placeholder {
+  width: 100%;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.stepper-debugger-placeholder h3 {
+  color: #646cff;
+  margin-bottom: 2rem;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.stepper-debugger-placeholder > div {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stepper-debugger-placeholder > div:last-child {
+  border-bottom: none;
+  margin-top: 1rem;
+}
+
+/* CSS Variables for Tokyo Night theme */
+:root {
+  --tn-bg: #1a1b26;
+  --tn-bg-alt: #16161e;
+  --tn-fg: #c0caf5;
+  --tn-comment: #565f89;
+  --tn-cyan: #7dcfff;
+  --tn-blue: #7aa2f7;
+  --tn-purple: #bb9af7;
+  --tn-green: #9ece6a;
+  --tn-yellow: #e0af68;
+  --tn-orange: #ff9e64;
+  --tn-red: #f7768e;
+  --tn-border: #292e42;
+}
+
 /* Form Styles */
 .form-container {
   background: rgba(255, 255, 255, 0.05);
