@@ -570,6 +570,27 @@ body {
 }
 
 /* Footer Styles */
+/* App Header */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--tn-dark3);
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.tab-navigation {
+  display: flex;
+  align-items: center;
+}
+
+.tab-content {
+  min-height: 60vh;
+}
+
 .app-footer {
   margin-top: 3rem;
   padding: 1.5rem 0;
