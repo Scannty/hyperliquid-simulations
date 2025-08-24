@@ -6,8 +6,12 @@ interface ForkWithCreatedAt extends Fork {
   duration: number;
 }
 
-export default function ForkManager() {
-  const [forks, setForks] = useState<ForkWithCreatedAt[]>([]);
+interface ForkManagerProps {
+  forks: ForkWithCreatedAt[];
+  setForks: React.Dispatch<React.SetStateAction<ForkWithCreatedAt[]>>;
+}
+
+export default function ForkManager({ forks, setForks }: ForkManagerProps) {
   const [forkDuration, setForkDuration] = useState(30);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
