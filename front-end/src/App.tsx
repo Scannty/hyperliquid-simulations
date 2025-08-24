@@ -5,6 +5,7 @@ import TraceOutput from "./components/TraceOutput";
 import type { TraceData } from "./components/TraceInput";
 import "./index.css";
 import "./App.css";
+import "./styles/tokyonight.css";
 
 // Core TypeScript interfaces for the application
 interface CallTrace {
