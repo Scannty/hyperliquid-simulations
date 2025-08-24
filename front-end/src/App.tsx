@@ -10,7 +10,6 @@ interface CallTrace {
   LineNumber: number;
   File: string;
   ContractAddress: string;
-  Depth: number;
 }
 
 interface ContractCalled {

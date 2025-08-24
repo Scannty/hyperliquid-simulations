@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import StepperDebugger from "./StepperDebugger";
 import "../App.css";
 
@@ -7,7 +7,6 @@ interface CallTrace {
     LineNumber: number;
     File: string;
     ContractAddress: string;
-    Depth: number;
 }
 
 interface ContractCalled {
