@@ -51,20 +51,6 @@ const TraceInput: React.FC<TraceInputProps> = ({ onTrace, isLoading }) => {
 
   return (
     <div className="form-container">
-      <div className="form-header">
-        <img
-          src="/logo-letters.svg?v=2"
-          alt="TraceX Logo"
-          style={{ height: "30px", width: "90px" }}
-        />
-        <div className="blockchain-selector">
-          <BlockchainSelect
-            value={formData.blockchain}
-            onChange={() => {}}
-            disabled={true}
-          />
-        </div>
-      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
