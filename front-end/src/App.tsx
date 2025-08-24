@@ -3,16 +3,14 @@ import axios from "axios";
 import TraceInput from "./components/TraceInput";
 import TraceOutput from "./components/TraceOutput";
 import type { TraceData } from "./components/TraceInput";
-import "./index.css";
-import "./App.css";
 import "./styles/tokyonight.css";
 
-// Core TypeScript interfaces for the application
 interface CallTrace {
   Opcode: string;
   LineNumber: number;
   File: string;
   ContractAddress: string;
+  Depth: number;
 }
 
 interface ContractCalled {
@@ -34,15 +32,12 @@ interface DebugResult {
   sourceCodes?: { [address: string]: { [filename: string]: string } };
 }
 
-// TraceData interface is now imported from TraceInput component
-
 function App() {
   const [debugResult, setDebugResult] = useState<DebugResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTransactionHash, setCurrentTransactionHash] = useState<string | null>(null);
 
-  // TODO: Will be used by TraceInput component in Step 3
   const handleTrace = async (data: TraceData) => {
     setIsLoading(true);
     setError(null);
@@ -57,7 +52,7 @@ function App() {
       
       if (data.transactionHash) {
         // Use existing transaction hash - hardcode forkId for now
-        const hardcodedForkId = "935507cf-cdcc-497a-8eff-e80f9f2d1ccd";
+        const hardcodedForkId = "55630203-6573-4388-8082-ad20140bee98";
         
         // Get contracts called
         const contractsResponse = await axios.get(`${API_BASE_URL}/debug/contractsCalled/${hardcodedForkId}`, {
@@ -133,11 +128,9 @@ function App() {
         debugTrace,
         sourceCodes
       });
-    } catch (err: unknown) {
-      const errorMessage = 
-        (err as any)?.response?.data?.error || 
-        (err as Error)?.message || 
-        "An error occurred";
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.error || err.message || "An error occurred";
       setError(errorMessage);
       console.error("Debug error:", err);
     } finally {
@@ -147,21 +140,13 @@ function App() {
 
   return (
     <div className="app">
-      <header>
-        <h1>Hyperliquid Simulations</h1>
-        <p>Transaction Debugger - Step by Step Execution Analysis</p>
-      </header>
-
-      <main>
-        <TraceInput onTrace={handleTrace} isLoading={isLoading} />
-        <TraceOutput 
-          debugResult={debugResult}
-          isLoading={isLoading}
-          error={error || undefined}
-          transactionHash={currentTransactionHash || undefined}
-        />
-      </main>
-
+      <TraceInput onTrace={handleTrace} isLoading={isLoading} />
+      <TraceOutput
+        debugResult={debugResult}
+        isLoading={isLoading}
+        error={error || undefined}
+        transactionHash={currentTransactionHash || undefined}
+      />
       <footer className="app-footer">
         <div className="footer-content">
           <span>
@@ -188,10 +173,20 @@ function App() {
               Foundry
             </a>
           </span>
+          <span>
+            Built by{" "}
+            <a
+              href="https://x.com/0xdivergence"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @0xdivergence
+            </a>
+          </span>
         </div>
       </footer>
     </div>
   );
 }
 
-export default App; 
+export default App;

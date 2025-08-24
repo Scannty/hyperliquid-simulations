@@ -7,6 +7,7 @@ interface CallTrace {
     LineNumber: number;
     File: string;
     ContractAddress: string;
+    Depth: number;
 }
 
 interface ContractCalled {
@@ -61,7 +62,7 @@ const TraceOutput: React.FC<TraceOutputProps> = ({ debugResult, isLoading, error
                 <div className="placeholder">
                     <h3 style={{ color: "var(--tn-comment)", marginBottom: "1rem" }}>No debug data</h3>
                     <p style={{ color: "var(--tn-comment)" }}>
-                        Enter transaction details above and click "Debug Transaction" to see the step-by-step execution.
+                        Enter transaction details above and click "Trace Transaction" to see the step-by-step execution.
                     </p>
                 </div>
             </div>
@@ -75,4 +76,4 @@ const TraceOutput: React.FC<TraceOutputProps> = ({ debugResult, isLoading, error
     );
 };
 
-export default TraceOutput; 
+export default TraceOutput;

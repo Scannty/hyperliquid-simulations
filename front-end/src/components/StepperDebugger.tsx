@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import "../styles/tokyonight.css";
 
 interface CallTrace {
   Opcode: string;
   LineNumber: number;
   File: string;
   ContractAddress: string;
-  Depth?: number;
+  Depth: number;
 }
 
 interface ContractCalled {
@@ -93,8 +92,22 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
     return true;
   });
 
+  if (!debugTrace || debugTrace.length === 0) {
+    return (
+      <div className="debugger-container">
+        <div className="debugger-empty">
+          <p>No debug trace available</p>
+        </div>
+      </div>
+    );
+  }
+
   const currentTrace = filteredTrace[currentStep] || debugTrace[currentStep];
+  console.log('Current trace:', currentTrace);
+  console.log('Available source codes:', sourceCodes);
+  console.log('Looking for:', currentTrace?.ContractAddress, currentTrace?.File);
   const currentSourceCode = sourceCodes?.[currentTrace?.ContractAddress]?.[currentTrace?.File] || "";
+  console.log('Found source code:', currentSourceCode ? 'YES' : 'NO');
 
   const goToStep = (step: number) => {
     if (step >= 0 && step < filteredTrace.length) {
@@ -107,7 +120,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
 
   // Auto-scroll to current line when step changes
   useEffect(() => {
-    if (sourceCodeRef.current && currentSourceCode && currentTrace) {
+    if (sourceCodeRef.current && currentSourceCode) {
       const lineHeight = 1.6 * 0.9 * 16; // line-height * font-size * 16px (rem to px)
       const targetScrollTop = Math.max(0, (currentTrace.LineNumber - 3) * lineHeight);
       
@@ -116,7 +129,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
         behavior: 'smooth'
       });
     }
-  }, [currentStep, currentSourceCode, currentTrace]);
+  }, [currentStep, currentSourceCode, currentTrace.LineNumber]);
 
   // Auto-scroll to current trace item in sidebar
   useEffect(() => {
@@ -133,15 +146,6 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
     }
   }, [currentStep, sidebarTab]);
 
-  if (!debugTrace || debugTrace.length === 0) {
-    return (
-      <div className="debugger-container">
-        <div className="debugger-empty">
-          <p>No debug trace available</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="debugger-container">
@@ -242,6 +246,22 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
                 >
                   {currentSourceCode}
                 </SyntaxHighlighter>
+                {/* Execution arrow overlay */}
+                <div 
+                  className="execution-arrow-overlay"
+                  style={{
+                    position: 'absolute',
+                    right: '1rem',
+                    top: `${(currentTrace.LineNumber - 1) * 1.6 * 0.9}rem`,
+                    color: 'var(--tn-yellow)',
+                    fontWeight: 'bold',
+                    fontSize: '1.2rem',
+                    animation: 'pulse 2s infinite',
+                    pointerEvents: 'none'
+                  }}
+                >
+                  →
+                </div>
               </div>
             ) : (
               <div className="source-placeholder">
@@ -260,7 +280,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
               <button 
                 onClick={() => goToStep(0)} 
                 disabled={currentStep === 0}
-                className="control-btn compact"
+                className="btn control-btn compact"
                 title="Go to first step"
               >
                 First
@@ -268,7 +288,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
               <button 
                 onClick={() => goToStep(filteredTrace.length - 1)} 
                 disabled={currentStep === filteredTrace.length - 1}
-                className="control-btn compact"
+                className="btn control-btn compact"
                 title="Go to last step"
               >
                 Last
@@ -276,7 +296,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
               <button 
                 onClick={prevStep} 
                 disabled={currentStep === 0}
-                className="control-btn compact"
+                className="btn control-btn compact"
                 title="Previous step"
               >
                 ↑ Previous
@@ -284,7 +304,7 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
               <button 
                 onClick={nextStep} 
                 disabled={currentStep === filteredTrace.length - 1}
-                className="control-btn compact"
+                className="btn control-btn compact"
                 title="Next step"
               >
                 ↓ Next
@@ -353,26 +373,25 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
                   {/* Trace items */}
                   <div className="trace-items">
                     {filteredTrace.map((trace, index) => {
-                      const depth = trace.Depth || 0;
                       const hasChildrenAfter = index < filteredTrace.length - 1 && 
-                        filteredTrace.slice(index + 1).some(t => (t.Depth || 0) > depth);
+                        filteredTrace.slice(index + 1).some(t => t.Depth > trace.Depth);
                       
                       return (
                         <div
                           key={index}
                           className={`trace-item-wrapper`}
                           style={{ 
-                            paddingLeft: `${depth * 20}px`,
+                            paddingLeft: `${trace.Depth * 20}px`,
                             position: 'relative'
                           }}
                         >
                           {/* Vertical line for this depth level */}
-                          {depth > 0 && (
+                          {trace.Depth > 0 && (
                             <div 
                               className="depth-line"
                               style={{
                                 position: 'absolute',
-                                left: `${(depth - 1) * 20 + 10}px`,
+                                left: `${(trace.Depth - 1) * 20 + 10}px`,
                                 top: 0,
                                 bottom: hasChildrenAfter ? 0 : '50%',
                                 width: '1px',
@@ -383,12 +402,12 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
                           )}
                           
                           {/* Horizontal connector */}
-                          {depth > 0 && (
+                          {trace.Depth > 0 && (
                             <div 
                               className="horizontal-connector"
                               style={{
                                 position: 'absolute',
-                                left: `${(depth - 1) * 20 + 10}px`,
+                                left: `${(trace.Depth - 1) * 20 + 10}px`,
                                 top: '14px',
                                 width: '10px',
                                 height: '1px',
@@ -483,4 +502,4 @@ const StepperDebugger: React.FC<StepperDebuggerProps> = ({ debugResult, transact
   );
 };
 
-export default StepperDebugger; 
+export default StepperDebugger;
