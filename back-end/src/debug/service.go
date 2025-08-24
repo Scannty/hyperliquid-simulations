@@ -19,6 +19,7 @@ import (
 
 type forkService interface {
 	CreateFork(forkDuration int) (string, error)
+	CreateForkAtBlock(forkDuration int, blockNumber string) (string, error)
 	DeleteFork(forkId string) error
 }
 
@@ -326,20 +327,32 @@ func (s *Service) DebugTransaction(forkId string, txHash string) (int, string, [
 	return filteredOpcodes[len(filteredOpcodes)-1].LineNumber, errorMessage, filteredOpcodes, nil
 }
 
-func (s *Service) SimulateRawTransaction(rawData []byte) ([]ContractCalled, int, string, []CallTrace, error) {
-	// Create New Fork
-	forkId, err := s.forkService.CreateFork(1)
+func (s *Service) SimulateRawTransaction(rawData []byte, blockNumber string) ([]ContractCalled, int, string, []CallTrace, error) {
+	fmt.Printf("🔍 DEBUG SimulateRawTransaction called with blockNumber: %s\n", blockNumber)
+
+	// Create New Fork - use block-specific fork if blockNumber is provided
+	var forkId string
+	var err error
+	if blockNumber != "" {
+		forkId, err = s.forkService.CreateForkAtBlock(1, blockNumber)
+		fmt.Printf("🔄 Created main fork %s for simulation at block %s\n", forkId, blockNumber)
+	} else {
+		forkId, err = s.forkService.CreateFork(1)
+		fmt.Printf("🔄 Created main fork %s for simulation at latest block\n", forkId)
+	}
 	if err != nil {
 		return nil, 0, "", nil, err
 	}
 
 	// Wait for the fork to start
+	fmt.Printf("⏳ Waiting 3 seconds for main fork to start...\n")
 	time.Sleep(time.Second * 3)
+	fmt.Printf("✅ Main fork should be ready now\n")
 
 	// Send the rpc request
 	_, resData, err := s.evmService.SendRpcRequest(forkId, rawData)
 	if err != nil {
-		fmt.Println("hey", err)
+		s.forkService.DeleteFork(forkId)
 		return nil, 0, "", nil, err
 	}
 
@@ -347,37 +360,347 @@ func (s *Service) SimulateRawTransaction(rawData []byte) ([]ContractCalled, int,
 	var res evm.RPCResponse
 	errDecode := json.Unmarshal(resData, &res)
 	if errDecode != nil {
+		s.forkService.DeleteFork(forkId)
 		return nil, 0, "", nil, errDecode
 	}
 
 	// Mine the transaction
 	errMine := s.evmService.MineTx(forkId)
 	if errMine != nil {
+		s.forkService.DeleteFork(forkId)
 		return nil, 0, "", nil, errMine
 	}
 
 	// Get the tx hash
 	txHash := res.Result
+	fmt.Printf("✅ Transaction mined with hash: %s\n", txHash)
 
-	// Get contracts called
-	contractsCalled, err := s.GetContractsCalled(forkId, txHash)
+	// Wait for transaction to be properly indexed after mining
+	fmt.Printf("⏳ Waiting 2 seconds for transaction to be indexed...\n")
+	time.Sleep(2 * time.Second)
+	fmt.Printf("✅ Transaction should be indexed now\n")
+
+	// GET OPCODE TRACE FIRST - before any other API calls (same as DebugTransaction)
+	fmt.Printf("🔍 Getting opcode trace FIRST...\n")
+	debugTrace, err := s.evmService.GetOpcodeTrace(forkId, txHash)
 	if err != nil {
-		return nil, 0, "", nil, err
+		fmt.Printf("❌ Failed to get opcode trace: %v\n", err)
+		s.forkService.DeleteFork(forkId)
+		return nil, -1, "", nil, err
+	}
+	fmt.Printf("✅ Got opcode trace with %d struct logs\n", len(debugTrace.StructLogs))
+
+	// WORKAROUND: Create a new fork for call trace due to Alchemy bug
+	// where debug_traceTransaction corrupts fork state for subsequent calls
+	var helperForkId string
+	if blockNumber != "" {
+		helperForkId, err = s.forkService.CreateForkAtBlock(1, blockNumber)
+		fmt.Printf("🔄 Created helper fork %s for call trace at block %s\n", helperForkId, blockNumber)
+	} else {
+		helperForkId, err = s.forkService.CreateFork(1)
+		fmt.Printf("🔄 Created helper fork %s for call trace at latest block\n", helperForkId)
+	}
+	if err != nil {
+		fmt.Printf("❌ Failed to create helper fork for call trace: %v\n", err)
+		s.forkService.DeleteFork(forkId)
+		return nil, -1, "", nil, err
 	}
 
-	// Debug the transaction
-	errorLineNumber, revertReason, debugTrace, err := s.DebugTransaction(forkId, txHash)
+	// Wait for Anvil to start up
+	fmt.Printf("⏳ Waiting 3 seconds for Anvil to start...\n")
+	time.Sleep(3 * time.Second)
+	fmt.Printf("✅ Anvil should be ready now\n")
+
+	trace, err := s.evmService.GetTransactionTrace(helperForkId, txHash)
 	if err != nil {
-		return nil, 0, "", nil, err
+		fmt.Printf("❌ Failed to get transaction trace: %v\n", err)
+		s.forkService.DeleteFork(forkId)
+		s.forkService.DeleteFork(helperForkId)
+		return nil, -1, "", nil, err
+	}
+	fmt.Printf("✅ Got %d trace entries\n", len(trace))
+
+	if len(trace) == 0 {
+		fmt.Printf("❌ No transaction trace found\n")
+		s.forkService.DeleteFork(forkId)
+		s.forkService.DeleteFork(helperForkId)
+		return nil, -1, "", nil, errors.New("no transcation trace")
 	}
 
-	// Deactivate the fork
+	// Get contracts called from trace
+	var contractsCalled []ContractCalled
+	for _, traceEntry := range trace {
+		method, params, err := s.getMethodAndParams(traceEntry.To, traceEntry.Input)
+		if err != nil {
+			contractsCalled = append(contractsCalled, ContractCalled{
+				ContractAddress:   traceEntry.To,
+				CallType:          traceEntry.Type,
+				FunctionSignature: "Unknown",
+				Arguments:         nil,
+			})
+			continue
+		}
+
+		var arguments []Argument
+		for i, param := range params {
+			arguments = append(arguments, Argument{
+				Name:  method.Inputs[i].Name,
+				Type:  method.Inputs[i].Type.String(),
+				Value: fmt.Sprint(param),
+			})
+		}
+
+		contractsCalled = append(contractsCalled, ContractCalled{
+			ContractAddress:   traceEntry.To,
+			CallType:          traceEntry.Type,
+			FunctionSignature: method.String(),
+			Arguments:         arguments,
+		})
+	}
+
+	contractMap := make(map[int]ContractEntry)
+
+	fmt.Printf("🔍 Processing %d trace entries for contracts...\n", len(trace))
+	for i, traceEntry := range trace {
+		fmt.Printf("   [%d/%d] Processing contract: %s\n", i+1, len(trace), traceEntry.To)
+
+		contractBytecode, err := s.evmService.GetContractBytecode(helperForkId, traceEntry.To)
+		if err != nil {
+			fmt.Printf("❌ Failed to get bytecode for %s: %v\n", traceEntry.To, err)
+			s.forkService.DeleteFork(forkId)
+			s.forkService.DeleteFork(helperForkId)
+			return nil, -1, "", nil, err
+		}
+		fmt.Printf("   ✅ Got bytecode (length: %d)\n", len(contractBytecode))
+
+		sourceCodes, err := s.GetSourceCode(traceEntry.To)
+		if err != nil {
+			fmt.Printf("❌ Failed to get source code for %s: %v\n", traceEntry.To, err)
+			s.forkService.DeleteFork(forkId)
+			s.forkService.DeleteFork(helperForkId)
+			return nil, -1, "", nil, err
+		}
+
+		// Check if this is an unverified contract
+		isUnverified := false
+		if len(sourceCodes) == 1 {
+			for filename, content := range sourceCodes {
+				if filename == "unverified.sol" && strings.Contains(content, "No source code available") {
+					isUnverified = true
+					break
+				}
+			}
+		}
+
+		if isUnverified {
+			fmt.Printf("⚠️  Contract %s is unverified, using placeholder\n", traceEntry.To)
+		} else {
+			fmt.Printf("   ✅ Got source code (%d files)\n", len(sourceCodes))
+		}
+
+		compiledContract, err := s.GetSourceMappingAndFileNames(traceEntry.To)
+		if err != nil {
+			fmt.Printf("❌ Failed to get source mapping for %s: %v\n", traceEntry.To, err)
+			s.forkService.DeleteFork(forkId)
+			s.forkService.DeleteFork(helperForkId)
+			return nil, -1, "", nil, err
+		}
+
+		if isUnverified {
+			fmt.Printf("   ⚠️  Using placeholder source mapping for unverified contract\n")
+		} else {
+			fmt.Printf("   ✅ Got source mapping (%d sources)\n", len(compiledContract.Sources))
+		}
+
+		depth := traceEntry.Depth + 1
+		contractMap[depth] = ContractEntry{
+			address:               traceEntry.To,
+			bytecode:              contractBytecode,
+			sourceCodes:           sourceCodes,
+			fileNames:             compiledContract.Sources,
+			decompressedSourceMap: decompressSourceMap(compiledContract.Srcmap),
+		}
+	}
+	fmt.Printf("✅ Finished processing contracts, got %d entries in contractMap\n", len(contractMap))
+
+	fmt.Printf("🔍 Getting transaction error message...\n")
+	revertReason, err := s.evmService.GetTransactionErrorMessage(forkId, txHash)
+	if err != nil {
+		fmt.Printf("❌ Failed to get transaction error message: %v\n", err)
+		s.forkService.DeleteFork(forkId)
+		s.forkService.DeleteFork(helperForkId)
+		return nil, -1, "", nil, err
+	}
+	fmt.Printf("✅ Got revert reason: '%s'\n", revertReason)
+
+	// Clean up helper fork
+	err = s.forkService.DeleteFork(helperForkId)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to delete helper fork %s: %v\n", helperForkId, err)
+	} else {
+		fmt.Printf("🧹 Cleaned up helper fork %s\n", helperForkId)
+	}
+
+	var errorMessage string
+	if revertReason == "0x" || revertReason == "" {
+		errorMessage = "Transaction successful!"
+	} else {
+		errorMessage = revertReason
+	}
+
+	fmt.Printf("🔍 Processing opcodes for debugging...\n")
+	opcodes := debugTrace.StructLogs
+	if len(opcodes) == 0 {
+		fmt.Printf("❌ No opcodes found in debug trace\n")
+		s.forkService.DeleteFork(forkId)
+		return nil, -1, "", nil, errors.New("no debug trace detected")
+	}
+	fmt.Printf("✅ Found %d opcodes to process\n", len(opcodes))
+	fmt.Printf("📊 Contract map has %d entries\n", len(contractMap))
+
+	var filteredOpcodes []CallTrace
+
+	for i, structLog := range debugTrace.StructLogs {
+		fmt.Printf("🔍 Processing structLog #%d: Op=%s, PC=%d, Depth=%d\n", i, structLog.Op, structLog.Pc, structLog.Depth)
+		contract := contractMap[structLog.Depth]
+
+		fmt.Printf(" Contract: %s, Bytecode length: %d\n", contract.address, len(contract.bytecode))
+
+		// Check if this is an unverified contract
+		isUnverified := false
+		if len(contract.sourceCodes) == 1 {
+			for filename, content := range contract.sourceCodes {
+				if filename == "unverified.sol" && strings.Contains(content, "No source code available") {
+					isUnverified = true
+					break
+				}
+			}
+		}
+
+		if isUnverified {
+			// For unverified contracts, include only target opcodes with placeholder source info
+			if isTargetOpcode(structLog.Op) {
+				filteredOpcodes = append(
+					filteredOpcodes,
+					CallTrace{
+						Opcode:          structLog.Op,
+						LineNumber:      1,
+						File:            "unverified.sol",
+						ContractAddress: contract.address,
+						Depth:           structLog.Depth,
+					},
+				)
+			}
+			continue
+		}
+
+		// Always get opcodeNumber, even for unverified contracts
+		opcodeNumber, err := s.getOpcodeNumber(structLog.Pc, contract.bytecode)
+		if err != nil {
+			fmt.Printf("⚠️ Could not find PC %d in bytecode, adding opcode with unknown location\n", structLog.Pc)
+			// Add opcode with placeholder info when PC can't be found
+			if isTargetOpcode(structLog.Op) {
+				filteredOpcodes = append(
+					filteredOpcodes,
+					CallTrace{
+						Opcode:          structLog.Op,
+						LineNumber:      -1, // Unknown line
+						File:            "unknown",
+						ContractAddress: contract.address,
+						Depth:           structLog.Depth,
+					},
+				)
+			}
+			continue
+		}
+
+		// Check bounds before accessing decompressedSourceMap
+		if opcodeNumber >= len(contract.decompressedSourceMap) {
+			fmt.Printf("⚠️ Opcode number %d is out of bounds (source map length: %d), adding with unknown location\n",
+				opcodeNumber, len(contract.decompressedSourceMap))
+			if isTargetOpcode(structLog.Op) {
+				filteredOpcodes = append(
+					filteredOpcodes,
+					CallTrace{
+						Opcode:          structLog.Op,
+						LineNumber:      -1,
+						File:            "unknown",
+						ContractAddress: contract.address,
+						Depth:           structLog.Depth,
+					},
+				)
+			}
+			continue
+		}
+
+		if isTargetOpcode(structLog.Op) {
+			fileId := contract.decompressedSourceMap[opcodeNumber].FileID
+			jumpType := contract.decompressedSourceMap[opcodeNumber].JumpType
+
+			if structLog.Op == "JUMP" && jumpType == "-" {
+				fmt.Println("Jump type not supported.")
+				continue
+			}
+
+			if !fileIdValid(fileId, contract.sourceCodes) {
+				fmt.Printf("⚠️  Invalid fileId %s, skipping\n", fileId)
+				continue
+			}
+
+			// Check bounds for fileNames map
+			if _, exists := contract.fileNames[fileId]; !exists {
+				fmt.Printf("⚠️  FileId %s not found in fileNames map, skipping\n", fileId)
+				continue
+			}
+
+			bytesOffset := contract.decompressedSourceMap[opcodeNumber].Offset
+			fileName := contract.fileNames[fileId]
+
+			// Check if source code exists for this file
+			sourceCode, exists := contract.sourceCodes[fileName]
+			if !exists {
+				fmt.Printf("⚠️  Source code not found for file %s, skipping\n", fileName)
+				continue
+			}
+
+			lineNumber, err := getLineNumber([]byte(sourceCode), bytesOffset)
+			if err != nil {
+				fmt.Println("NOOOOOO", err)
+				s.forkService.DeleteFork(forkId)
+				return nil, -1, "", nil, err
+			}
+
+			if len(filteredOpcodes) != 0 && filteredOpcodes[len(filteredOpcodes)-1].LineNumber == lineNumber && structLog.Op != "RETURN" {
+				continue
+			}
+
+			filteredOpcodes = append(
+				filteredOpcodes,
+				CallTrace{
+					Opcode:          structLog.Op,
+					LineNumber:      lineNumber,
+					File:            fileName,
+					ContractAddress: contract.address,
+					Depth:           structLog.Depth,
+				},
+			)
+		}
+	}
+
+	errorLineNumber := -1
+	if len(filteredOpcodes) > 0 {
+		errorLineNumber = filteredOpcodes[len(filteredOpcodes)-1].LineNumber
+	}
+
+	// Deactivate the main fork
 	errDelete := s.forkService.DeleteFork(forkId)
 	if errDelete != nil {
-		return nil, 0, "", nil, errDelete
+		fmt.Printf("⚠️  Failed to delete main fork %s: %v\n", forkId, errDelete)
+	} else {
+		fmt.Printf("🧹 Cleaned up main fork %s\n", forkId)
 	}
 
-	return contractsCalled, errorLineNumber, revertReason, debugTrace, nil
+	return contractsCalled, errorLineNumber, errorMessage, filteredOpcodes, nil
 }
 
 func (s *Service) GetLastAddressCalled(forkId string, txHash string) (string, error) {
