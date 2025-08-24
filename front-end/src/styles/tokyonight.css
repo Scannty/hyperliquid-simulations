@@ -1,0 +1,60 @@
+/* Tokyo Night Theme Variables */
+:root {
+  --tn-bg: #1a1b26;
+  --tn-bg-alt: #16161e;
+  --tn-bg-dark: #16161e;
+  --tn-bg-darker: #0f0f14;
+  --tn-fg: #c0caf5;
+  --tn-fg-dark: #a9b1d6;
+  --tn-fg-gutter: #3b4261;
+  --tn-dark3: #545c7e;
+  --tn-comment: #565f89;
+  --tn-dark5: #737aa2;
+  --tn-purple: #bb9af7;
+  --tn-red: #f7768e;
+  --tn-orange: #ff9e64;
+  --tn-yellow: #e0af68;
+  --tn-green: #9ece6a;
+  --tn-teal: #73daca;
+  --tn-cyan: #7dcfff;
+  --tn-blue: #7aa2f7;
+  --tn-magenta: #bb9af7;
+  --tn-border: #292e42;
+  
+  /* Terminal Colors */
+  --terminal-bg: var(--tn-bg-dark);
+  --terminal-border: var(--tn-dark3);
+  --terminal-text: var(--tn-fg);
+  
+  /* Trace Colors - Foundry Mapping */
+  --trace-success: var(--tn-green);
+  --trace-revert: var(--tn-red);
+  --trace-cheat: var(--tn-blue);
+  --trace-log: var(--tn-cyan);
+  --trace-deploy: var(--tn-yellow);
+  --trace-gas: var(--tn-comment);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--tn-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tn-dark3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tn-dark5);
+}
+
+/* Monospace font family */
+.monospace {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+} 
