@@ -64,6 +64,7 @@ const BlockchainSelect: React.FC<BlockchainSelectProps> = ({
     setIsOpen(false);
   };
 
+
   return (
     <div className="blockchain-select" ref={dropdownRef}>
       <div 
@@ -128,4 +129,4 @@ const BlockchainSelect: React.FC<BlockchainSelectProps> = ({
   );
 };
 
-export default BlockchainSelect; 
+export default BlockchainSelect;
