@@ -6,7 +6,7 @@ import (
 )
 
 type anvilService interface {
-	StartAnvilProcess(port int, rpcUrl string) error
+	StartAnvilProcess(port int, rpcUrl string, blockNumber string) error
 	StopAnvilProcess(port int) error
 }
 
@@ -18,8 +18,15 @@ func NewService() *Service {
 	return &Service{portToCmdMap: make(map[int]*exec.Cmd)}
 }
 
-func (s *Service) StartAnvilProcess(port int, rpcUrl string) error {
-	cmd := exec.Command("anvil", "--steps-tracing", "--port", fmt.Sprint(port), "--host", "0.0.0.0", "--fork-url", rpcUrl)
+func (s *Service) StartAnvilProcess(port int, rpcUrl string, blockNumber string) error {
+	args := []string{"--steps-tracing", "--port", fmt.Sprint(port), "--host", "0.0.0.0", "--fork-url", rpcUrl}
+	
+	// Add block number flag if specified
+	if blockNumber != "" {
+		args = append(args, "--fork-block-number", blockNumber)
+	}
+	
+	cmd := exec.Command("anvil", args...)
 	err := cmd.Start()
 	if err != nil {
 		return err

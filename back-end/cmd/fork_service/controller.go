@@ -266,7 +266,10 @@ func (ctrl *Controller) simulateRawTxHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, httpError)
 	}
 
-	contractsCalled, errorLineNumber, revertReason, debugTrace, err := ctrl.debugService.SimulateRawTransaction(rawData)
+	// Get optional block number parameter
+	blockNumber := c.QueryParam("blockNumber")
+
+	contractsCalled, errorLineNumber, revertReason, debugTrace, err := ctrl.debugService.SimulateRawTransaction(rawData, blockNumber)
 	if err != nil {
 		htppError := HTTPError{
 			Message: "Error simulating raw transaction",

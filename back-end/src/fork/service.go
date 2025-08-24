@@ -19,7 +19,7 @@ type repository interface {
 }
 
 type anvilService interface {
-	StartAnvilProcess(port int, rpcUrl string) error
+	StartAnvilProcess(port int, rpcUrl string, blockNumber string) error
 	StopAnvilProcess(port int) error
 }
 
@@ -43,7 +43,7 @@ func (s *Service) CreateFork(forkDuration int) (string, error) {
 		return "", err
 	}
 
-	err = s.anvilService.StartAnvilProcess(port, s.rpcUrl)
+	err = s.anvilService.StartAnvilProcess(port, s.rpcUrl, "")
 	if err != nil {
 		releaseErr := s.repo.ReleasePortWithForkId(forkId)
 		if releaseErr != nil {
@@ -65,6 +65,37 @@ func (s *Service) CreateFork(forkDuration int) (string, error) {
 	}()
 
 	log.Infof("Created fork with id: %v.", forkId)
+	return forkId, nil
+}
+
+func (s *Service) CreateForkAtBlock(forkDuration int, blockNumber string) (string, error) {
+	port, forkId, err := s.repo.FindAndReservePort()
+	if err != nil {
+		return "", err
+	}
+
+	err = s.anvilService.StartAnvilProcess(port, s.rpcUrl, blockNumber)
+	if err != nil {
+		releaseErr := s.repo.ReleasePortWithForkId(forkId)
+		if releaseErr != nil {
+			log.Error("Failed releasing reserved port!")
+			return "", errors.Wrap(err, releaseErr.Error())
+		}
+
+		log.Error("Fork creation at block failed!")
+		return "", err
+	}
+
+	// Delete fork after provided duration
+	go func() {
+		time.Sleep(time.Duration(forkDuration) * time.Minute)
+		err := s.DeleteFork(forkId)
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+	log.Infof("Created fork with id: %v at block: %v.", forkId, blockNumber)
 	return forkId, nil
 }
 
